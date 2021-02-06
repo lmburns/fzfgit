@@ -146,10 +146,9 @@ function get_git_file() {
   local print_opt="${2:-full}"
   mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   set_fzf_multi "$3"
-  git  \
-    ls-files --full-name --directory "${GTREE}" \
+  git ls-files --full-name --directory "${GTREE}" \
     | fzf --header="${header}" \
-        --preview preview.sh ${GTREE}/{}" \
+        --preview "preview.sh ${GTREE}/{}" \
     | awk -v home="${GTREE}" -v print_opt="${print_opt}" '{
         if (print_opt == "full") {
           print home "/" $0
@@ -177,13 +176,13 @@ function get_git_file() {
 #   the selected file path
 #   e.g.$HOME/.config/nvim/init.vim
 #######################################
+
 function get_modified_file() {
   local header="${1:-select a modified file}"
   local display_mode="${2:-all}"
   local output_format="${3:-name}"
   set_fzf_multi "$4"
-  git  \
-    status --porcelain \
+  git status --porcelain \
     | awk -v display_mode="${display_mode}" '{
         if ($0 ~ /^[A-Za-z][A-Za-z].*$/) {
           print "\033[32m" substr($0, 1, 1) "\033[31m" substr($0, 2) "\033[0m"
