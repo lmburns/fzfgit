@@ -15,7 +15,7 @@ set -ef
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: fstash [-h] [-s] [-d] [-p] ...
 
 View and manage stash interactively.
@@ -30,7 +30,7 @@ Optional arguments:
 }
 
 stash_command="apply"
-selected_files=()
+typeset -a selected_files=()
 selected_stash=""
 confirm=""
 

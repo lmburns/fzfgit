@@ -7,7 +7,7 @@ Installation:
 ------------
 
 ```sh
-git clone https://github.com/burnsac5040/fzfgit.git
+git clone https://github.com/lmburns/fzfgit.git
 cd fzfgit
 make install
 ```

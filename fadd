@@ -37,14 +37,14 @@ Optional arguments:
 #   $1: array of files to stage
 #######################################
 
-function stage_file() {
-  local files=("$@")
-  [[ "${#files[@]}" -eq 0 ]] && exit 1
+stage_file() {
+  local -a files && files=("$@")
+  [[ "${#files[@]}" -eq 0 ]] && { printf "%s" "$(tput setaf 1)Nothing added$(tput sgr0)"; exit 1; }
   git  add "${files[@]}"
 }
 
 stage_type="modified"
-selected_files=()
+typeset -a selected_files && selected_files=()
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -68,3 +68,5 @@ done < <(
 )
 
 stage_file "${selected_files[@]}"
+
+[[ "${#selected_files[@]}" -ne 0 ]] && git status -sb

@@ -23,7 +23,7 @@ set -ef
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: freset [-h] [-c] [-S] [-H] [-y] ...
 
 Reset(unstage) the selected staged files.
@@ -41,7 +41,7 @@ Optional arguments:
 
 reset_option="--mixed"
 reset_type="modified"
-selected_files=()
+typeset -a selected_files=()
 confirm=""
 selected_commit=""
 

@@ -15,7 +15,7 @@ set -ef
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: fstat [-h] ...
 
 Display interactive git status menu.
@@ -32,23 +32,25 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+typeset -a mod_files=()
+
 while :; do
   # reset all variable and arrays for each loop
-  selected_files=()
-  selected_filenames=()
+  typeset -a selected_files=()
+  typeset -a selected_filenames=()
   stage_file=""
 
   while IFS= read -r line; do
     selected_files+=("${line}")
   done < <(get_modified_file "select files to stage/unstage" "all" "raw")
-  [[ "${#selected_files[@]}" -eq 0 ]] && break
+  [[ "${#selected_files[@]}" -eq 0 ]] && break;
 
   # check if current operation should stage file or unstage file
   # if any file start with M but has char immediately follow it, new changes are made, stage file
   # if any file start with a space or tab, the file is not staged, stage file
   # otherwise, we unstage
   stage_file=$(printf '%s\n' "${selected_files[@]}" | awk '{
-    if ($0 ~ /^[A-Za-z][A-Za-z].*$/) {
+    if ($0 ~ /^[[:alpha:]]{2}.*$/) {
       print "stage"
     } else if ($0 ~ /^[ \t].*$/) {
       print "stage"
@@ -57,6 +59,10 @@ while :; do
 
   while IFS= read -r line; do
     selected_filenames+=("${line}")
+    # may be a bit much to have two arrays, inside/outside loop
+    # workaround to have a loop continuously ask
+    # as well as display git status when finished
+    mod_files+=("${line}")
   done < <(
     printf '%s\n' "${selected_files[@]}" \
       | awk -v home="${GTREE}" '{
@@ -73,3 +79,5 @@ while :; do
     git add "${selected_filenames[@]}"
   fi
 done
+
+[[ "${#mod_files[@]}" -ne 0 ]] && git status -sb || printf "%s" "$(tput setaf 1)Nothing to add$(tput sgr0)"

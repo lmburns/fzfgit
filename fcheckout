@@ -21,7 +21,7 @@ set -ef
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: fcheckout [-h] [-s] [-b] [-c] [-y] ...
 
 Select files/commit/branch through fzf and checkout the selected objects.
@@ -40,7 +40,7 @@ Optional arguments:
 }
 
 action_type="modified"
-selected_files=()
+typeset -a kselected_files=()
 confirm=""
 selected_commit=""
 selected_branch=""

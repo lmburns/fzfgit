@@ -34,7 +34,8 @@
 #   file will be printed.
 #   Otherwise only the $2-$4 parts of the file will be printed and $3 will be highlighted
 #######################################
-function display_preview() {
+
+display_preview() {
   local fallback_cmd preview_cmd preview_file preview_first preview_last preview_center
   preview_file="$1"
   preview_first="$2"
@@ -105,7 +106,7 @@ if [ -n "${FZF_PREVIEW_LINES}" ]; then
   preview_lines="${FZF_PREVIEW_LINES}"
 else
   if [ -r /dev/tty ]; then
-    preview_lines=$(stty size < /dev/tty | awk '{print $1}')
+    preview_lines=$(stty size < /dev/tty | cut -d' ' -f1)
   else
     preview_lines=40
   fi

@@ -13,7 +13,7 @@ set -ef
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: fgrep [-h] [-c] [-f] ...
 
 Grep words within tracked files and select to edit matches.
@@ -26,8 +26,8 @@ Optional arguments:
   -f, --full\t\tinclude all column during search, as if using '--col 1'."
 }
 
-selected_lines=()
-fzf_search_delimiter=3
+typeset -a selected_lines=()
+typeset -i fzf_search_delimiter=3
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in

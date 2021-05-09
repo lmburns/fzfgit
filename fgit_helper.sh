@@ -27,7 +27,7 @@ FZF_DEFAULT_OPTS="
 # Arguments:
 #   $1: if exists, disable multi, set single
 #######################################
-function set_fzf_multi() {
+set_fzf_multi() {
   local no_multi="$1"
   if [[ -z "${no_multi}" ]]; then
     export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS} --multi"
@@ -47,7 +47,7 @@ function set_fzf_multi() {
 # Outputs:
 #   ${confirm}: y or n indicating user response
 #######################################
-function get_confirmation() {
+get_confirmation() {
   local confirm
   local message="${1:-Confirm?}"
   while [ "${confirm}" != 'y' ]  && [ "${confirm}" != 'n' ]; do
@@ -67,7 +67,7 @@ function get_confirmation() {
 #   the selected commit 6 char code
 #   e.g. b60b330
 #######################################
-function get_commit() {
+get_commit() {
   local header="${1:-select a commit}"
   local files=("${@:2}")
   if [[ "${#files[@]}" -eq 0 ]]; then
@@ -100,7 +100,7 @@ function get_commit() {
 #   the selected branch name
 #   e.g. master
 #######################################
-function get_branch() {
+get_branch() {
   local header="${1:-select a branch}"
   git   branch -a \
     | awk '{
@@ -140,7 +140,7 @@ function get_branch() {
 #   the selected file path
 #   e.g.$HOME/.config/nvim/init.vim
 #######################################
-function get_git_file() {
+get_git_file() {
   local mydir
   local header="${1:-select tracked file}"
   local print_opt="${2:-full}"
@@ -177,14 +177,14 @@ function get_git_file() {
 #   e.g.$HOME/.config/nvim/init.vim
 #######################################
 
-function get_modified_file() {
+get_modified_file() {
   local header="${1:-select a modified file}"
   local display_mode="${2:-all}"
   local output_format="${3:-name}"
   set_fzf_multi "$4"
   git status --porcelain \
     | awk -v display_mode="${display_mode}" '{
-        if ($0 ~ /^[A-Za-z][A-Za-z].*$/) {
+        if ($0 ~ /^[[[:alpha:]]{2}.*$/) {
           print "\033[32m" substr($0, 1, 1) "\033[31m" substr($0, 2) "\033[0m"
         } else if ($0 ~ /^[A-Za-z][ \t].*$/) {
           if (display_mode == "all" || display_mode == "staged") {
@@ -222,7 +222,7 @@ function get_modified_file() {
 #   the selected stash identifier
 #   e.g. stash@{0}
 #######################################
-function get_stash() {
+get_stash() {
   local header="${1:-select a stash}"
   set_fzf_multi "$2"
   git  \
@@ -252,7 +252,7 @@ function get_stash() {
 #   the selected file name with it's line number and line, separated by ":"
 #   e.g. .bash_profile:1:echo hello
 #######################################
-function grep_words() {
+grep_words() {
   local header="${1:-select matches to edit}"
   local delimiter="${2:-3}"
   mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -274,7 +274,7 @@ function grep_words() {
 # Outputs:
 #   A user selected file path
 #######################################
-function search_file() {
+search_file() {
   local search_type="$1" mydir
   mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   if [[ "${search_type}" == "f" ]]; then

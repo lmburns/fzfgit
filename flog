@@ -21,7 +21,7 @@ set -ef
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: flog [-h] [-r] [-R] [-e] [-c] [-y] ...
 
 Interactive log viewer with action menu.
@@ -46,7 +46,7 @@ Optional arguments:
 # Outputs:
 #   ${selected_action}: user selected action
 #######################################
-function draw_menu() {
+draw_menu() {
   local selected_commit="$1"
   local selected_action="$2"
   local menu header message
