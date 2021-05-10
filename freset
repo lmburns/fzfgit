@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 #
-# unstage the selected staged file
-# or reset the commit to certain point
+# Desc: unstage selected staged file || reset the commit to certain point
 #
 # @params
-# Globals
+# Globals:
 #   ${mydir}: current directory of the script
 #   ${reset_type}: reset type, modified files or commit
 #   ${reset_option}: git reset flag, --mixed | --soft | --hard
 #   ${selected_files}: selected file to reset
 #   ${selected_commit}: selected commit to reset
 #   ${confirm}: confirmation status of the user
-# Arguments
+# Arguments:
 #   -h|--help: show help message and quit
 #   -c|--commit: reset commit
 #   -S|--soft: use --soft flag
@@ -20,7 +19,7 @@
 
 set -ef
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 source "${mydir}"/fgit_helper.sh
 
 usage() {
@@ -41,16 +40,16 @@ Optional arguments:
 
 reset_option="--mixed"
 reset_type="modified"
-typeset -a selected_files=()
+typeset -a selected_files && selected_files=()
 confirm=""
 selected_commit=""
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    -c|--commit) reset_type="commit" shift ;;
-    -S|--soft) reset_option="--soft" shift ;;
-    -H|--hard) reset_option="--hard" shift ;;
-    -y|--yes) confirm='y' shift ;;
+    -c|--commit) reset_type="commit"; shift ;;
+    -S|--soft) reset_option="--soft"; shift ;;
+    -H|--hard) reset_option="--hard"; shift ;;
+    -y|--yes) confirm='y'; shift ;;
     -h|--help) usage && exit 0 ;;
     *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
   esac

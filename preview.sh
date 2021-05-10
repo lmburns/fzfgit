@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 #
-# dynamic preview command for git
-# borrowed and modified from fzf.vim
-# can export G_PREVIEW='bat -Pf --style auto'
+# Desc: dynamic preview command; borrowed & modified from fzf.vim
+# can export FZFGIT_PREVIEW='bat -Pf --style auto'
 #
 # @params
-# Globals
+# Globals:
 #   reverse_seq: reverse highlight sequence for easier print
 #   reset_seq: reset highlight sequence for eaiser print
 #   input_option: the array containing informaiton from cmd argument
@@ -15,10 +14,10 @@
 #   preview_first: the first line number of the file to be printed
 #   preview_last: the last line number of the file to be printed
 #   file_mime: mime of the file, used to display information for binary file
-# Arguments
+# Arguments:
 #   $1: The filename and line info to be previewed
 #     Format: filepath[:lineno][:ignored]
-# Example
+# Example:
 #   preview "$HOME/.bashrc:15"
 
 #######################################
@@ -46,14 +45,14 @@ display_preview() {
   preview_cmd=${preview_cmd//{\}/$(printf %q "${preview_file}")}
 
   if [[ -z "${preview_first}" ]] || [[ -z "${preview_center}" ]] || [[ -z "${preview_last}" ]]; then
-    if [[ -z "${G_PREVIEW}" ]] && command -v bat > /dev/null; then
+    if [[ -z "${FZFGIT_PREVIEW}" ]] && command -v bat > /dev/null; then
       bat --color=always --pager=never "${preview_file}"
       exit $?
     fi
     eval "${preview_cmd}" 2> /dev/null
     exit 0
   else
-    if [ -z "${G_PREVIEW}" ] && command -v bat > /dev/null; then
+    if [ -z "${FZFGIT_PREVIEW}" ] && command -v bat > /dev/null; then
       bat --color=always --pager=never \
           --line-range="${preview_first}":"${preview_last}" --highlight-line="${preview_center}" "${preview_file}"
       exit $?

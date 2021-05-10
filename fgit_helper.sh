@@ -3,17 +3,37 @@
 #######################################
 ########## SETTING VARIABLES ##########
 #######################################
-export GTREE="$(git rev-parse --show-toplevel)"
-export G_DIFF_PAGER="$(git config core.pager || echo 'cat')"
+export FZFGIT_TREE="$(git rev-parse --show-toplevel)"
+export FZFGIT_DIFF_PAGER="${FZFGIT_DIFF_PAGER:-$(git config core.pager || echo 'cat')}"
 export EDITOR="${EDITOR:-vim}"
+export FZFGIT_VERSION="v1.2"
 
 [[ -z "${FZF_DEFAULT_OPTS}" ]] && export FZF_DEFAULT_OPTS='--cycle'
+
+if [[ -z "${FZFGIT_KEY}" ]]; then
+  FZFGIT_KEY="
+    --bind='ctrl-a:toggle-all'
+    --bind='ctrl-b:execute(bat --paging=always -f {+})'
+    --bind='ctrl-y:execute-silent(echo {+} | pbcopy)'
+    --bind='ctrl-e:execute(echo {+} | xargs -o $EDITOR)'
+    --bind='ctrl-k:preview-up'
+    --bind='ctrl-j:preview-down'
+    --bind='alt-j:jump'
+    --bind='alt-0:top'
+    --bind='ctrl-s:toggle-sort'
+    --bind='?:toggle-preview'
+"
+fi
+
 
 FZF_DEFAULT_OPTS="
   $FZF_DEFAULT_OPTS
   --ansi
   --cycle
-  --exit-0"
+  --exit-0
+  $FZFGIT_DEFAULT_OPTS
+  $FZFGIT_KEY
+"
 
 [[ -z "${COLUMNS}" ]] \
   && COLUMNS=$(stty size < /dev/tty | cut -d' ' -f2)
@@ -50,8 +70,8 @@ set_fzf_multi() {
 get_confirmation() {
   local confirm
   local message="${1:-Confirm?}"
-  while [ "${confirm}" != 'y' ]  && [ "${confirm}" != 'n' ]; do
-    read -r -p "${message}(y/n): " confirm
+  while [[ "${confirm}" != 'y' && "${confirm}" != 'n' ]]; do
+    read -r -p "${message}[y/n]: " confirm
   done
   echo "${confirm}"
 }
@@ -78,16 +98,16 @@ get_commit() {
           | awk '{print \$1}' \
           | xargs -I __ git  \
               show --color=always  __ \
-          | ${G_DIFF_PAGER}" \
+          | ${FZFGIT_DIFF_PAGER}" \
       | awk '{print $1}'
   else
-    git  \
+    git \
       log --oneline --color=always --decorate=short \
       | fzf --header="${header}" --no-multi --preview "echo {} \
           | awk '{print \$1}' \
           | xargs -I __ git  \
               diff --color=always __ ${files[*]} \
-          | ${G_DIFF_PAGER}" \
+          | ${FZFGIT_DIFF_PAGER}" \
       | awk '{print $1}'
   fi
 }
@@ -102,7 +122,7 @@ get_commit() {
 #######################################
 get_branch() {
   local header="${1:-select a branch}"
-  git   branch -a \
+  git branch -a \
     | awk '{
         if ($0 ~ /\*.*\(HEAD.*/) {
           gsub(/\* /, "", $0)
@@ -126,7 +146,7 @@ get_branch() {
             print \$0
           }
         }' \
-      | xargs -I __ git  \
+      | xargs -I __ git \
           log --color=always --color=always --format='%C(auto)%h%d %s %C(black)%C(bold)%cr' __"
 }
 
@@ -144,12 +164,12 @@ get_git_file() {
   local mydir
   local header="${1:-select tracked file}"
   local print_opt="${2:-full}"
-  mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
   set_fzf_multi "$3"
-  git ls-files --full-name --directory "${GTREE}" \
+  git ls-files --full-name --directory "${FZFGIT_TREE}" \
     | fzf --header="${header}" \
-        --preview "preview.sh ${GTREE}/{}" \
-    | awk -v home="${GTREE}" -v print_opt="${print_opt}" '{
+        --preview "preview.sh ${FZFGIT_TREE}/{}" \
+    | awk -v home="${FZFGIT_TREE}" -v print_opt="${print_opt}" '{
         if (print_opt == "full") {
           print home "/" $0
         } else {
@@ -197,11 +217,11 @@ get_modified_file() {
         }
       }' \
     | fzf --header="${header}" --preview "echo {} \
-        | awk '{sub(\$1 FS,\"\");print \$0}' \
-        | xargs -I __ git  \
-            diff HEAD --color=always -- ${GTREE}/__ \
-        | ${G_DIFF_PAGER}" \
-    | awk -v home="${GTREE}" -v format="${output_format}" '{
+        | awk '{sub(\$1 FS,\"\"); print \$0}' \
+        | xargs -I __ git \
+            diff HEAD --color=always -- ${FZFGIT_TREE}/__ \
+        | ${FZFGIT_DIFF_PAGER}" \
+    | awk -v home="${FZFGIT_TREE}" -v format="${output_format}" '{
         if (format == "name") {
           $1=""
           gsub(/^[ \t]/, "", $0)
@@ -225,16 +245,16 @@ get_modified_file() {
 get_stash() {
   local header="${1:-select a stash}"
   set_fzf_multi "$2"
-  git  \
+  git \
     stash list \
     | fzf --header="${header}" --preview "echo {} \
         | awk '{
             gsub(/:/, \"\", \$1)
             print \$1
           }' \
-        | xargs -I __ git  \
+        | xargs -I __ git \
             stash show -p __ --color=always \
-        | ${G_DIFF_PAGER}" \
+        | ${FZFGIT_DIFF_PAGER}" \
     | awk '{
         gsub(/:/, "", $1)
         print $1
@@ -255,14 +275,16 @@ get_stash() {
 grep_words() {
   local header="${1:-select matches to edit}"
   local delimiter="${2:-3}"
-  mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  local grep_cmd
+  command -v rg >/dev/null && grep_cmd="rg --line-number --no-heading --color=auto --smart-case --ignore='.git' -- ." \
+    || grep_cmd="git grep --line-number -- ."
+  mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
   set_fzf_multi "$2"
-  cd "${GTREE}" || exit
-  git  \
-    grep --line-number -- . \
+  cd "${FZFGIT_TREE}" || exit
+  eval "${grep_cmd}" \
     | fzf --delimiter : --nth "${delimiter}".. --header="${header}" \
-        --preview "${mydir}/preview.sh ${GTREE}/{}" \
-    | awk -F ":" -v home="${GTREE}" '{
+        --preview "${mydir}/preview.sh ${FZFGIT_TREE}/{}" \
+    | awk -F ":" -v home="${FZFGIT_TREE}" '{
         print home "/" $1 ":" $2
       }'
 }
@@ -276,12 +298,16 @@ grep_words() {
 #######################################
 search_file() {
   local search_type="$1" mydir
-  mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
   if [[ "${search_type}" == "f" ]]; then
     find . -maxdepth 1 -type f | sed "s|\./||g" | fzf --multi --preview "${mydir}/preview.sh {}"
   elif [[ "${search_type}" == "d" ]]; then
-    if command -v tree &>/dev/null; then
-      find . -maxdepth 1 -type d | awk '{if ($0 != "." && $0 != "./.git"){gsub(/^\.\//, "", $0);print $0}}' | fzf --multi --preview "tree -L 1 -C --dirsfirst {}"
+    if command -v exa &>/dev/null; then
+      find . -maxdepth 1 -type d | awk '{if ($0 != "." && $0 != "./.git"){gsub(/^\.\//, "", $0);print $0}}' \
+        | fzf --multi --preview "exa -TL 1 --color=always --group-directories-first --icons {}"
+    elif command -v tree &>/dev/null; then
+      find . -maxdepth 1 -type d | awk '{if ($0 != "." && $0 != "./.git"){gsub(/^\.\//, "", $0);print $0}}' \
+        | fzf --multi --preview "tree -L 1 -C --dirsfirst {}"
     else
       find . -maxdepth 1 -type d | awk '{if ($0 != "." && $0 != "./.git"){gsub(/^\.\//, "", $0);print $0}}' | fzf --multi
     fi

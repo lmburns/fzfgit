@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 #
-# stash operation using fzf
+# Desc: stash operation using fzf
 #
 # @params
-# Globals
+# Globals:
 #   ${mydir}: current dir of the script, source purpose
 #   ${stash_command}: stash command, pop, apply or file/delete to stash file or delete stash
 #   ${selected_files}: selected files to stash
 #   ${selected_stash}: selected stash to apply
 #   ${confirm}: user confirm status
+# Arguments:
+#   -h|--help: show help message
+#   -s|--select: select individual files and stash
+#   -d|--delete: delete selected stash
+#   -p|--pop: use pop instead of apply on the selected stash
 
 set -ef
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 source "${mydir}"/fgit_helper.sh
 
 usage() {
@@ -30,16 +35,16 @@ Optional arguments:
 }
 
 stash_command="apply"
-typeset -a selected_files=()
+typeset -a selected_files && selected_files=()
 selected_stash=""
 confirm=""
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    -p|--pop) stash_command="pop" shift ;;
-    -s|--select) stash_command="select" shift ;;
-    -d|--delete) stash_command="delete" shift ;;
-    -y|--yes) confirm="y" shift ;;
+    -p|--pop) stash_command="pop";       shift ;;
+    -s|--select) stash_command="select"; shift ;;
+    -d|--delete) stash_command="delete"; shift ;;
+    -y|--yes) confirm="y"; shift ;;
     -h|--help) usage && exit 0 ;;
     *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
   esac

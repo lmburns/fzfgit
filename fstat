@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 #
-# interactive git status menu
-# toggle stage and unstage
+# Desc: interactive git status menu; toggle stage and unstage
 #
 # @params
-# Globals
+# Globals:
 #   ${mydir}: current directory of where the script is running
 #   ${selected_files}: raw selected file (with current git status prepend)
 #   ${selected_filenames}: bash array of names for the selected_files
@@ -13,6 +12,7 @@
 set -ef
 
 mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 source "${mydir}"/fgit_helper.sh
 
 usage() {
@@ -32,12 +32,12 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-typeset -a mod_files=()
+typeset -a mod_files && mod_files=()
 
 while :; do
   # reset all variable and arrays for each loop
-  typeset -a selected_files=()
-  typeset -a selected_filenames=()
+  typeset -a selected_files && selected_files=()
+  typeset -a selected_filenames && selected_filenames=()
   stage_file=""
 
   while IFS= read -r line; do
@@ -65,7 +65,7 @@ while :; do
     mod_files+=("${line}")
   done < <(
     printf '%s\n' "${selected_files[@]}" \
-      | awk -v home="${GTREE}" '{
+      | awk -v home="${FZFGIT_TREE}" '{
           $1=""
           gsub(/^[ \t]/, "", $0)
           gsub(/"/, "", $0)

@@ -8,12 +8,14 @@ DESTDIR ?= $(PREFIX)/bin
 all:
 	@echo "To install $(PROG) scripts run \"make install\"."
 	@echo "The $(PROG) scripts require some other packages:"
-	@echo "         brew install fzf bat"
+	@echo "         brew install fzf bat delta"
 
 install:
 	@install -vd "$(DESTDIR)/"
 	@install -vm755 fadd "$(DESTDIR)/fadd"
 	@echo "fadd installed successfully"
+	@install -vm755 fbackup "$(DESTDIR)/fbackup"
+	@echo "fbackup installed successfully"
 	@install -vm755 fcheckout "$(DESTDIR)/fcheckout"
 	@echo "fcheckout installed successfully"
 	@install -vm755 fedit "$(DESTDIR)/fedit"

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# checkout files/commit/branches using fzf
+# Desc: checkout files/commit/branches using fzf
 #
 # @params
-# Globals
+# Globals:
 #   ${mydir}: current directory of the script, used for imports
 #   ${action_type}: what type of git commands to use (branch|select|commit|modified)
 #   ${selected_branch}: selected_branch to switch
 #   ${selected_files}: selected_files to checkout
 #   ${selected_commit}: selected commit to checkout
 #   ${confirm}: confirm status of the user
-# Arguments
+# Arguments:
 #   -h|--help: show help message
 #   -s|--select: search all files instead of just the modified files
 #   -b|--branch: search branch and checkout branch
@@ -18,7 +18,7 @@
 
 set -ef
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 source "${mydir}"/fgit_helper.sh
 
 usage() {
@@ -40,17 +40,17 @@ Optional arguments:
 }
 
 action_type="modified"
-typeset -a kselected_files=()
+typeset -a selected_files && selected_files=()
 confirm=""
 selected_commit=""
 selected_branch=""
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    -s|--select) action_type="select" shift ;;
-    -b|--branch) action_type="branch" shift ;;
-    -c|--commit) action_type="commit" shift ;;
-    -y|--yes) confirm="y" shift ;;
+    -s|--select) action_type="select"; shift ;;
+    -b|--branch) action_type="branch"; shift ;;
+    -c|--commit) action_type="commit"; shift ;;
+    -y|--yes) confirm="y";             shift ;;
     -h|--help) usage && exit 0 ;;
     *) echo "Invalid option: $1" >&2 && usage && exit 1;;
   esac

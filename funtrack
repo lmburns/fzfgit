@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# untrack selected files
+# Desc: untrack selected files
 #
 # @params
-# Globals
+# Globals:
 #   ${mydir}: current dir of the script
 #   ${track_type}: determine method to use for untrack, possible values: untrack, temp, resume
 #   ${confirm}: user confirm status
@@ -11,7 +11,7 @@
 
 set -ef
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 source "${mydir}"/fgit_helper.sh
 
 usage() {
@@ -36,14 +36,14 @@ Optional arguments:
 }
 
 track_type="untrack"
-typeset -a selected_files=()
+typeset -a selected_files && selected_files=()
 confirm=""
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    -t|--temp) track_type="temp" shift ;;
-    -r|--resume) track_type="retrack" shift ;;
-    -y|--yes) confirm='y' shift ;;
+    -t|--temp) track_type="temp";      shift ;;
+    -r|--resume) track_type="retrack"; shift ;;
+    -y|--yes) confirm='y';             shift ;;
     -h|--help) usage && exit 0 ;;
     *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
   esac

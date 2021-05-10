@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 #
-# Stage the selected file to git bare repo
+# Desc: stage the selected file to git bare repo
 #
 # @params
-# Globals
+# Globals:
 #   ${mydir}: string, current directory of the executing script
 #   ${stage_type}: modified, new file, or directory to stage
 #   ${selected_files}: bash array of user selected files to stage
-# Arguments
+# Arguments:
 #   -h|--help: show help message
 #   -f|--file: select a file in PWD to stage
 #   -d|--dir: select a directory in PWD to stage
 
 set -ef
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 source "${mydir}"/fgit_helper.sh
 
-function usage() {
+usage() {
   echo -e "Usage: fadd [-h] [-f] [-d] ...
 
 Select files/directories or modified files through fzf.
@@ -40,7 +40,7 @@ Optional arguments:
 stage_file() {
   local -a files && files=("$@")
   [[ "${#files[@]}" -eq 0 ]] && { printf "%s" "$(tput setaf 1)Nothing added$(tput sgr0)"; exit 1; }
-  git  add "${files[@]}"
+  git add "${files[@]}"
 }
 
 stage_type="modified"
@@ -48,8 +48,8 @@ typeset -a selected_files && selected_files=()
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    -f|--file) stage_type="file" shift ;;
-    -d|--dir) stage_type="dir" shift ;;
+    -f|--file) stage_type="file"; shift ;;
+    -d|--dir) stage_type="dir";   shift ;;
     -h|--help) usage && exit 0 ;;
     *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
   esac
