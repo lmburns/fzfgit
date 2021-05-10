@@ -172,6 +172,8 @@ _widget_git_transform_fzfgit() {
           if ($2 ~ /(log|add|reset|checkout|status|stash|grep|untrack|stat)/) {
             if ($2 == "status"){
               $2="stat"
+            } else if ($2 == "grep"){
+              $2="zgrep"
             }
             $2="f"$2
           }

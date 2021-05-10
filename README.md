@@ -2,9 +2,9 @@
 
 This is a fork of [`dotbare`](https://github.com/kazhala/dotbare). The scripts are modified to work with a regular `git` directory.
 
-### Installation:
+## Installation:
 
-#### Manual - use as a script
+### Manual - use as a script
 
 ```sh
 git clone https://github.com/lmburns/fzfgit.git
@@ -12,14 +12,14 @@ cd fzfgit
 make install
 ```
 
-#### zsh
+### zsh
 
-##### zinit
+#### zinit
 ```sh
 zinit light lmburns/fzfgit
 ```
 
-##### oh-my-zsh
+#### oh-my-zsh
 ```sh
 git clone https://github.com/lmburns/fzfgit.git ${ZDOTDIR:-$HOME}/.oh-my-zsh/custom/plugins/fzfgit
 
@@ -27,12 +27,12 @@ git clone https://github.com/lmburns/fzfgit.git ${ZDOTDIR:-$HOME}/.oh-my-zsh/cus
 plugins=( fzfgit )
 ```
 
-##### Antigen
+#### Antigen
 ```sh
 antigen bundle lmburns/fzfgit
 ```
 
-##### Manual - use as a `zsh` plugin
+#### Manual - use as a `zsh` plugin
 ```sh
 git clone https://github.com/lmburns/fzfgit.git ${ZDOTDIR:-$HOME}/.fzfgit
 
@@ -214,5 +214,5 @@ export FZFGIT_DIFF_PAGER="delta --diff-so-fancy --line-numbers"
 Top level directory where the current directory you are in can be backed up to.  I am working on allowing specification of a path to a directory that you're currently not in.
 
 ```sh
-export FZFGIT_BACKUP="$XDG_DATA_HOME/gitbackup"
+export FZFGIT_BACKUP="{$XDG_DATA_HOME}/gitbackup"
 ```
