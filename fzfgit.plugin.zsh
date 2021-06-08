@@ -144,13 +144,13 @@ _fzfgit_completion_git() {
   compdef "${compdef_name}"=git
 }
 
-_widget_fzfgit_fadd() { fzfgit fadd; }
-_widget_fzfgit_fedit() { fzfgit fedit; }
-_widget_fzfgit_fcheckout() { fzfgit fcheckout; }
-_widget_fzfgit_freset() { fzfgit freset; }
-_widget_fzfgit_flog() { fzfgit flog; }
-_widget_fzfgit_fzgrep() { fzfgit fzgrep; }
-_widget_fzfgit_fstat() { fzfgit fstat; }
+_widget_fzfgit_fadd() { fadd; }
+_widget_fzfgit_fedit() { fedit; }
+_widget_fzfgit_fcheckout() { fcheckout; }
+_widget_fzfgit_freset() { freset; }
+_widget_fzfgit_flog() { flog; }
+_widget_fzfgit_fzgrep() { fzgrep; }
+_widget_fzfgit_fstat() { fstat; }
 
 zle -N fzfgit-fadd _widget_fzfgit_fadd
 zle -N fzfgit-fedit _widget_fzfgit_fedit
