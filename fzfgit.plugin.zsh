@@ -159,29 +159,3 @@ zle -N fzfgit-freset _widget_fzfgit_reset
 zle -N fzfgit-flog _widget_fzfgit_flog
 zle -N fzfgit-fzgrep _widget_fzfgit_fzgrep
 zle -N fzfgit-fstat _widget_fzfgit_fstat
-
-# _widget_git_transform_fzfgit() {
-#   local fzfgit_cmd new_cmd
-#   fzfgit_cmd=$(alias | grep fzfgit | cut -d'=' -f1 | head -n 1)
-#   [[ -z "${fzfgit_cmd}" ]] && fzfgit_cmd="fzfgit"
-#   fzfgit_cmd="${fzfgit_cmd} -g"
-#   BUFFER=$(echo "$BUFFER" \
-#     | awk -v fzfgit="${fzfgit_cmd}" '{
-#         if ($1 == "git") {
-#           $1=fzfgit
-#           if ($2 ~ /(log|add|reset|checkout|status|stash|grep|untrack|stat)/) {
-#             if ($2 == "status"){
-#               $2="stat"
-#             } else if ($2 == "grep"){
-#               $2="zgrep"
-#             }
-#             $2="f"$2
-#           }
-#         }
-#         print $0
-#       }'
-#   )
-#   zle end-of-line
-# }
-#
-# zle -N fzfgit-transform _widget_git_transform_fzfgit
