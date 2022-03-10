@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Grep for words within all dotfiles
 #
 # @params
@@ -8,10 +11,12 @@
 #   selected_lines: selected lines to edit
 #   fzf_search_delimiter: the col to start searching in fzf
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
+
 
 usage() {
   echo -e "Usage: fgrep [-h] [-c] [-f] ...

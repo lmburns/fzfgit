@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: interactive menu to choose file/commit to edit
 #
 # @params
@@ -13,51 +16,51 @@
 #   -c|--commit: edit commit using interactive rebase
 #   -h|--help: show helpe message and exit
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: fedit [-h] [-m] [-c] ...
+function usage() {
+  builtin print -P "\
+%F{1}%BUsage%f%b:
+  %F{2}fedit%f [%F{13}-h%f] [%F{13}-m%f] [%F{13}-c%f] ...
 
-Select files/commits through fzf and edit selected files/commits in EDITOR.
+%F{11}Select%f files/commits through fzf and edit selected files/commits in EDITOR.
 
-Default: list all tracked dotfiles and edit the selected files.
+%F{4}Default%f: list all tracked dotfiles and edit the selected files.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -m, --modified\tonly list and edit selected modified files.
-  -c, --commit\t\tlist commit and edit the selected commit through interactive rebase."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f      Show this help message and exit
+  %F{13}-m%f, %F{13}--modified%f  Only list and edit selected modified files
+  %F{13}-c%f, %F{13}--commit%f    List commit and edit the selected commit through interactive rebase"
 }
 
+local -a selected_files
+local edit_type selected_commit
 edit_type="all"
-typeset -a selected_files && selected_files=()
-selected_commit=""
 
-while [[ "$#" -gt 0 ]]; do
+while (( $# )) {
   case "$1" in
-    -m|--modified) edit_type="modified"; shift ;;
-    -c|--commit) edit_type="commit";     shift ;;
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
+    (-m|--modified) edit_type="modified"; shift  ;;
+    (-c|--commit)   edit_type="commit";   shift  ;;
+    (-h|--help)     usage;                exit 0 ;;
+    (*)             print::error "Invalid option: $1" && { usage; exit 1 } ;;
   esac
-done
+}
 
-if [[ "${edit_type}" == "commit" ]]; then
+if [[ "$edit_type" == commit ]]; then
   selected_commit=$(get_commit "select a commit to edit")
-  [[ -z "${selected_commit}" ]] && exit 1
-  git rebase -i "${selected_commit}"~
+  [[ -z "$selected_commit" ]] && exit 1
+  command git rebase -i "$selected_commit"~
 else
-  while IFS= read -r line; do
-    selected_files+=("${line}")
-  done < <(
-    if [[ "${edit_type}" == "modified" ]]; then
-      get_modified_file "select files to edit"
-    else
-      get_git_file "select files to edit"
-    fi
-  )
-  [[ "${#selected_files[@]}" -eq 0 ]] && exit 1
-  exec "${EDITOR}" "${selected_files[@]}"
+  if [[ "$edit_type" = modified ]] {
+    selected_files=( ${(@f)"$(get_modified_file 'select files to edit')"} )
+  } else {
+    selected_files=( ${(@f)"$(get_git_file 'select files to edit')"})
+  }
+
+  (( $#selected_files )) || exit 1
+  exec "$EDITOR" "$selected_files[@]"
 fi

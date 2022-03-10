@@ -1,0 +1,356 @@
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
+emulate -LR zsh
+setopt warncreateglobal noshortloops typesetsilent extendedglob
+
+function print::warning() { print -Pru2 -- "%F{3}[WARNING]%f: $*"; }
+function print::error()   { print -Pru2 -- "%F{1}%B[ERROR]%f%b: $*"; }
+
+zmodload -Fa zsh/parameter p:commands || {
+  print::error "Unable to load %F{2}zsh/paramter%f. Exiting..."
+  exit 1
+}
+
+#######################################
+########## SETTING VARIABLES ##########
+#######################################
+() {
+  typeset -g \
+         FZFGIT_TREE="$(command git rev-parse --show-toplevel)" \
+         FZFGIT_DIFF_PAGER="${FZFGIT_DIFF_PAGER:-$(git config core.pager || print -r -- 'cat')}" \
+         FZFGIT_LOG_FMT=${FZFGIT_LOG_FMT:-%C(auto)%h%d %s %C(black)%C(bold)%cr%Creset} \
+         EDITOR=${EDITOR:-${VISUAL:-vim}} \
+         FZFGIT_VERSION="v1.3"
+
+  local fd=${${${:-=fd}:c}:A}
+  [[ -x "$fd" ]] && typeset -g fzfgit_find="$fd" || typeset -g fzfgit_find="find"
+
+  [[ -z "${FZF_DEFAULT_OPTS}" ]] && export FZF_DEFAULT_OPTS='--cycle'
+
+  if [[ -z "${FZFGIT_KEY}" ]]; then
+    typeset -g FZFGIT_KEY="
+      --bind='ctrl-a:toggle-all'
+      --bind='ctrl-b:execute(bat --paging=always -f {+})'
+      --bind='ctrl-y:execute-silent(echo {+} | pbcopy)'
+      --bind='ctrl-e:execute(echo {+} | xargs -o $EDITOR)'
+      --bind='ctrl-k:preview-up'
+      --bind='ctrl-j:preview-down'
+      --bind='alt-j:jump'
+      --bind='alt-0:top'
+      --bind='ctrl-s:toggle-sort'
+      --bind='?:toggle-preview'
+  "
+  fi
+
+  FZF_DEFAULT_OPTS="
+    $FZF_DEFAULT_OPTS
+    --ansi
+    --cycle
+    --exit-0
+    $FZFGIT_DEFAULT_OPTS
+    $FZFGIT_KEY
+  "
+
+  (( ! $COLUMNS ))    && COLUMNS=${(s: :)$(stty size < /dev/tty)[2]}
+  (( $COLUMNS < 80 )) && FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --preview-window=hidden"
+}
+
+#######################################
+# determine to set multi selection or not
+# Globals:
+#   ${FZF_DEFAULT_OPTS}: fzf options
+# Arguments:
+#   $1: if exists, disable multi, set single
+#######################################
+function set_fzf_multi() {
+  local no_multi="$1"
+  [[ -z "$no_multi" ]] && {
+    export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS} --multi"
+  } || export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS} --no-multi"
+}
+
+#######################################
+# Helper function to get user confirmation
+# Globals:
+#   None
+# Locals:
+#   ${confirm}: user confirmation status
+# Arguments:
+#   $1: confirmation message to show during confirm
+# Outputs:
+#   ${confirm}: y or n indicating user response
+#######################################
+function get_confirmation() {
+  local confirm message="${1:-Confirm?}"
+  # Must be printed to stderr for other functions accepting stdout
+  builtin print -Pru2 -- "%F{4}$message%f"
+  builtin read -rq '?[Y/n]? ' confirm && {
+  notify-send "before: $confirm"
+    builtin print -r -- "${confirm}"
+  }
+}
+
+
+#######################################
+# let user select a commit interactively
+# credit to forgit for the git log format
+# Arguments:
+#   $1: the helper message to display in the fzf header
+#   $2: files to show diff against HEAD
+# Outputs:
+#   the selected commit 6 char code
+#   e.g. b60b330
+#######################################
+function get_commit() {
+  # TODO: Maybe one off
+  local header="${1:-Select a commit}"
+  local -a files=( ${@[2,-1]} )
+  if (( $#files )) {
+    command git log \
+      --oneline \
+      --color=always \
+      --decorate=short \
+    | command fzf \
+      --header="$header" \
+      --no-multi \
+      --preview "echo {} \
+          | awk '{print \$1}' \
+          | xargs -I __ git  \
+              diff --color=always __ ${files[*]} \
+          | ${FZFGIT_DIFF_PAGER}" \
+      | awk '{print $1}'
+  } else {
+    command git log \
+      --color=always \
+      --format='%C(auto)%h%d %s %C(black)%C(bold)%cr' \
+    | command fzf \
+      --header="$header" \
+      --no-multi \
+      --preview "echo {} \
+        | awk '{print \$1}' \
+        | xargs -I __ git  \
+        show --color=always  __ \
+        | ${FZFGIT_DIFF_PAGER}" \
+        | awk '{print $1}'
+  }
+}
+
+#######################################
+# let user select a branch interactively
+# Arguments:
+#   $1: the helper message to display in the fzf header
+# Outputs:
+#   the selected branch name
+#   e.g. master
+#######################################
+function get_branch() {
+  local header="${1:-Select a branch}"
+  command git branch -a \
+    | command awk '{
+        if ($0 ~ /\*.*\(HEAD.*/) {
+          gsub(/\* /, "", $0)
+          print "\033[32m" $0 "\033[0m"
+        } else if (match($1, "\\*") != 0) {
+          print "\033[32m" $2 "\033[0m"
+        } else if ($0 ~ /^[ \t]+remotes\/.*/) {
+          gsub(/[ \t]+/, "", $0)
+          print "\033[31m" $0 "\033[0m"
+        } else {
+          gsub(/^[ \t]+/, "", $0)
+          print $0
+        }
+      }' \
+    | command fzf --no-multi --header="$header" \
+        --preview="echo {} \
+      | awk '{
+          if (\$0 ~ /.*HEAD.*/) {
+            print \"HEAD\"
+          } else {
+            print \$0
+          }
+        }' \
+      | xargs -I __ git \
+          log --color=always --color=always --format='%C(auto)%h%d %s %C(black)%C(bold)%cr' __"
+}
+
+#######################################
+# let user select a git tracked file interactively
+# Arguments:
+#   $1: the helper message to display in the fzf header
+#   $2: print option, values (full|raw)
+#   $3: if exist, don't do multi selection, do single
+# Outputs:
+#   the selected file path
+#   e.g.$HOME/.config/nvim/init.vim
+#######################################
+function get_git_file() {
+  # TODO: Why is this here?
+  local mydir=${0:A:h}
+  local header="${1:-Select tracked file}"
+  local print_opt="${2:-full}"
+  set_fzf_multi "$3"
+  command git ls-files \
+    --full-name \
+    --directory "$FZFGIT_TREE" \
+    | fzf \
+      --header="$header" \
+      --preview "preview.sh $FZFGIT_TREE/{}" \
+    | command awk -v home="$FZFGIT_TREE" -v print_opt="$print_opt" '{
+        if (print_opt == "full") {
+          print home "/" $0
+        } else {
+          print $0
+        }
+      }'
+}
+
+#######################################
+# let user select a modified file interactively
+# Arguments:
+#   $1: the helper message to display in the fzf header
+#   $2: display mode of modified files.
+#     default: true
+#     all: display all modified, include staged and unstaged
+#     staged: display only staged files
+#     unstaged: display only unstaged files
+#   $3: output_format
+#     default: name
+#     name: formatted name of the file
+#     raw: raw file name with status
+#   $4: if exists, don't do multi selection, do single
+# Outputs:
+#   the selected file path
+#   e.g.$HOME/.config/nvim/init.vim
+#######################################
+function get_modified_file() {
+  local header="${1:-Select a modified file}"
+  local display_mode="${2:-all}"
+  local output_format="${3:-name}"
+  set_fzf_multi "$4"
+  command git status --porcelain \
+    | awk -v display_mode="${display_mode}" '{
+        if ($0 ~ /^[[[:alpha:]]{2}.*$/) {
+          print "\033[32m" substr($0, 1, 1) "\033[31m" substr($0, 2) "\033[0m"
+        } else if ($0 ~ /^[A-Za-z][ \t].*$/) {
+          if (display_mode == "all" || display_mode == "staged") {
+            print "\033[32m" $0 "\033[0m"
+          }
+        } else {
+          if (display_mode == "all" || display_mode == "unstaged") {
+            print "\033[31m" $0 "\033[0m"
+          }
+        }
+      }' \
+    | command fzf --header="$header" --preview "echo {} \
+        | awk '{sub(\$1 FS,\"\"); print \$0}' \
+        | xargs -I __ git \
+            diff HEAD --color=always -- $FZFGIT_TREE/__ \
+        | $FZFGIT_DIFF_PAGER" \
+    | awk -v home="$FZFGIT_TREE" -v format="$output_format" '{
+        if (format == "name") {
+          $1=""
+          gsub(/^[ \t]/, "", $0)
+          gsub(/"/, "", $0)
+          print home "/" $0
+        } else {
+          print $0
+        }
+      }'
+}
+
+#######################################
+# let user select a stash interactively
+# Arguments:
+#   $1: the help message to display in header
+#   $2: if exists, don't do multi select, only allow single selection
+# Outputs:
+#   the selected stash identifier
+#   e.g. stash@{0}
+#######################################
+function get_stash() {
+  local header="${1:-select a stash}"
+  set_fzf_multi "$2"
+  command git \
+    stash list \
+    | command fzf --header="${header}" --preview "echo {} \
+        | awk '{
+            gsub(/:/, \"\", \$1)
+            print \$1
+          }' \
+        | xargs -I __ git \
+            stash show -p __ --color=always \
+        | $FZFGIT_DIFF_PAGER" \
+    | command awk '{
+        gsub(/:/, "", $1)
+        print $1
+      }'
+}
+
+#######################################
+# Using git grep to find word within
+# all tracked files in the bare repo.
+# Arguments:
+#   $1: the help message to display in header
+#   $2: the fzf delimiter to start searching, default is 3
+#   $3: if exists, don't do multi select, only allow single selection
+# Outputs:
+#   the selected file name with it's line number and line, separated by ":"
+#   e.g. .bash_profile:1:echo hello
+#######################################
+function grep_words() {
+  local header="${1:-Select matches to edit}"
+  local delimiter="${2:-3}" mydir=${0:A:h}
+  local grep_cmd
+  (( $+commands[rg] )) && \
+    grep_cmd="rg --line-number --no-heading --color=auto --smart-case --ignore='.git' -- ." || \
+    grep_cmd="git grep --line-number -- ."
+  set_fzf_multi "$2"
+  builtin cd -q "$FZFGIT_TREE" || exit
+
+  eval "$grep_cmd" \
+    | command fzf \
+      --delimiter : \
+      --nth "${delimiter}.." \
+      --header="${header}" \
+      --preview "$mydir/preview.sh $FZFGIT_TREE/{}" \
+    | command awk -F ":" -v home="${FZFGIT_TREE}" '{
+        print home "/" $1 ":" $2
+      }'
+}
+
+#######################################
+# search local file
+# Arguments:
+#   $1: string, f or d, search file or directory
+# Outputs:
+#   A user selected file path
+#######################################
+function search_file() {
+  emulate -LR zsh
+  local search_type="$1" mydir=${0:A:h}
+
+  if [[ $search_type = f ]]; then
+    builtin print -rl -- \
+      ${${(@f)$(eval "${(@)${(@f)${${(M)${fzfgit_find:t}:#fd}:+fd . -d1 -tf}:-find . -maxdepth 1 -type f}}")}#./} \
+      | command fzf --multi --preview "${mydir}/preview.sh {}"
+  elif [[ $search_type == d ]]; then
+    if (( $+commands[exa] )) {
+      eval "${(@)${(@f)${${(M)${fzfgit_find:t}:#fd}:+fd . -d1 -td}:-find . -maxdepth 1 -type d}}" \
+        | command awk '{ if ($0 != "." && $0 != "./.git") { gsub(/^\.\//, "", $0); print $0 } }' \
+        | command fzf --multi --preview "exa -TL 1 --color=always --group-directories-first --icons {}"
+    } elif (( $+commands[tree] )) {
+      eval "${(@)${(@f)${${(M)${fzfgit_find:t}:#fd}:+fd . -d1 -td}:-find . -maxdepth 1 -type d}}" \
+        | command awk '{ if ($0 != "." && $0 != "./.git") { gsub(/^\.\//, "", $0); print $0 } }' \
+        | command fzf --multi --preview "tree -L 1 -C --dirsfirst {}"
+    } else {
+      eval "${(@)${(@f)${${(M)${fzfgit_find:t}:#fd}:+fd . -d1 -td}:-find . -maxdepth 1 -type d}}" \
+        | command awk '{ if ($0 != "." && $0 != "./.git") { gsub(/^\.\//, "", $0); print $0 } }' \
+        | command fzf --multi
+    }
+  fi
+}
+
+# vim: ft=zsh:et:sw=2:ts=2:sts=-1:fdm=marker:fmr=[[[,]]]:

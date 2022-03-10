@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: untrack selected files
 #
 # @params
@@ -9,30 +12,32 @@
 #   ${confirm}: user confirm status
 #   ${selected_files}: arrays of user selected_files for operation
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: funtrack [-h] [-t] [-r] [-y] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%f%b: %F{2}funtrack%f [%F{13}-h%f] [%F{13}-t%f] [%F{13}-r%f] [%F{13}-y%f] ...
 
 Untrack selected files from git.
 
-Default: list all tracked files and permanently untrack the selected files (using git rm --cached filename).
+%F{4}Default%f: list all tracked files and permanently untrack the selected files (using git rm --cached filename).
 
 Files will be remove from index while keeping the file in your current system.
 However, when your other computers pull down the changes, the untracked files will be deleted.
 Make sure to run fbackup before pulling down the changes.
 
-Alternatively use the -t flag (using git update-index --assume-unchanged [path]) to temporarily
+Alternatively use the %F{13}-t%f flag (using git update-index --assume-unchanged [path]) to temporarily
 untrack a file but keeping the files when other computers pull down the changes.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -t, --temp\t\tlist all tracked files and temporarily ignore changes of the selected files.
-  -r, --resume\t\tlist all tracked files and resume tracking changes of the selected files.
-  -y, --yes\t\tacknowledge all actions that will be taken and skip confirmation."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f     Show this help message and exit
+  %F{13}-t%f, %F{13}--temp%f     List all tracked files and temporarily ignore changes of the selected files
+  %F{13}-r%f, %F{13}--resume%f   List all tracked files and resume tracking changes of the selected files
+  %F{13}-y%f, %F{13}--yes%f      Acknowledge all actions that will be taken and skip confirmation"
 }
 
 track_type="untrack"

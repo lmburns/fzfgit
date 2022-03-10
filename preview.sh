@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: dynamic preview command; borrowed & modified from fzf.vim
 # can export FZFGIT_PREVIEW='bat -Pf --style auto'
 #

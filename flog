@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: git log interactive viewer
 #
 # @params
@@ -16,26 +19,29 @@
 #   -c|--checkout: checkout selected commmit
 #   -y|--yes: confirm action by default and skip confirmation
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: flog [-h] [-r] [-R] [-e] [-c] [-y] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%b%f:
+  %F{2}flog%f [%F{13}-h%f] [%F{13}-r%f] [%F{13}-R%f] [%F{13}-e%f] [%F{13}-c%f] [%F{13}-y%f] ...
 
 Interactive log viewer with action menu.
 Action menu contains options including revert|reset|edit|checkout|exit.
 
-Default: list all commits and prompt a menu to select action to perform.
+%F{4}Default%f: list all commits and prompt a menu to select action to perform.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -r, --revert\t\trevert the selected commit and skip action menu.
-  -R, --reset\t\treset HEAD back to selected commit and skip action menu.
-  -e, --edit\t\tedit selected commit through interactive rebase and skip action menu.
-  -c, --checkout\tcheckout selected commit and skip action menu.
-  -y, --yes\t\tacknowledge all actions that will be taken and skip confirmation."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f     Show this help message and exit
+  %F{13}-r%f, %F{13}--revert%f   Revert the selected commit and skip action menu
+  %F{13}-R%f, %F{13}--reset%f    Reset HEAD back to selected commit and skip action menu
+  %F{13}-e%f, %F{13}--edit%f     Edit selected commit through interactive rebase and skip action menu
+  %F{13}-c%f, %F{13}--checkout%f Checkout selected commit and skip action menu
+  %F{13}-y%f, %F{13}--yes%f      Acknowledge all actions that will be taken and skip confirmation"
 }
 
 #######################################
@@ -46,71 +52,69 @@ Optional arguments:
 # Outputs:
 #   ${selected_action}: user selected action
 #######################################
-draw_menu() {
+function draw_menu() {
   local selected_commit="$1"
   local selected_action="$2"
   local menu header message
-  if [[ -n "$selected_action" ]]; then
-    echo "${selected_action}"
-  else
+  [[ -n "$selected_action" ]] && {
+    builtin print -r -- "$selected_action"
+  } || {
     menu="revert: revert the selected commit\n"
     menu="${menu}reset: reset HEAD to the selected commit using --mixed flag\n"
     menu="${menu}edit: edit selected commit through interactive rebase\n"
     menu="${menu}checkout: checkout the selected commit\n"
     menu="${menu}exit: quit flog"
     message=$(
-      git \
-      log --format=%B -n 1 "${selected_commit}"
+      command git log \
+        --format=%B -n 1 "$selected_commit"
     )
-    header="commit ${selected_commit}: ${message}"
-    selected_action=$(echo -e "${menu}" \
-      | fzf --no-multi --header="${header}" \
-      | awk -F ":" '{
+    header="commit $selected_commit: $message"
+    selected_action=$(print -- "$menu" \
+      | fzf --no-multi --header="$header" \
+      | command awk -F ":" '{
           print $1
         }'
     )
-    echo "${selected_action}"
-  fi
+    builtin print -r -- "$selected_action"
+  }
 }
 
-selected_action=""
-selected_commit=""
-confirm=""
-
-while [[ "$#" -gt 0 ]]; do
+while (( $# )) {
   case "$1" in
-    -r|--revert) selected_action="revert"; shift ;;
-    -R|--reset) selected_action="reset";   shift ;;
-    -e|--edit) selected_action="edit";     shift ;;
-    -c|--checkout) selected_action="checkout"; shift ;;
-    -y|--yes) confirm='y'; shift ;;
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
+    (-r|--revert)   selected_action="revert";   shift ;;
+    (-R|--reset)    selected_action="reset";    shift ;;
+    (-e|--edit)     selected_action="edit";     shift ;;
+    (-c|--checkout) selected_action="checkout"; shift ;;
+    (-y|--yes)      confirm='y';                shift ;;
+    (-h|--help)     usage && exit 0 ;;
+    (*)             print::error "Invalid option: $1" &&   { usage; exit 1 } ;;
   esac
-done
+}
 
 while :; do
   selected_commit=$(get_commit)
-  [[ -z "${selected_commit}" ]] && exit 1
+  [[ -z "$selected_commit" ]] && exit 1
   selected_action=$(draw_menu "${selected_commit}" "${selected_action}")
-  [[ -n "${selected_action}" ]] && break
+  [[ -n "$selected_action" ]] && break
 done
 
 if [[ "${selected_action}" != 'exit' ]]; then
   if [[ "${selected_action}" == "reset" ]] && [[ -z "${confirm}" ]]; then
-    echo "(dryrun) reset HEAD to ${selected_commit}"
-  elif [[ -z "${confirm}" ]]; then
-    echo "(dryrun) ${selected_action} ${selected_commit}"
+    print -P -- "(%F{3}dryrun%f) reset HEAD to $selected_commit"
+  elif [[ -z "$confirm" ]]; then
+    print -P -- "(%F{3}dryrun%f) ${selected_action} ${selected_commit}"
   fi
-  [[ -z "${confirm}" ]] && confirm=$(get_confirmation)
-  [[ "${confirm}" != 'y' ]] && exit 1
+
+  [[ -z "$confirm" ]] && confirm=$(get_confirmation)
+  [[ "$confirm" != y ]] && exit 1
+  notify-send 'past'
 fi
 
-case "${selected_action}" in
-  revert) git revert "${selected_commit}" ;;
-  reset) git reset "${selected_commit}" ;;
-  edit) git rebase -i "${selected_commit}"~ ;;
-  checkout) git checkout "${selected_commit}" ;;
-  exit) exit 0 ;;
-  *) exit 1 ;;
-esac
+case "$selected_action" {
+  (revert) git revert "${selected_commit}" ;;
+  (reset) git reset "${selected_commit}" ;;
+  (edit) git rebase -i "${selected_commit}"~ ;;
+  (checkout) git checkout "${selected_commit}" ;;
+  (exit) exit 0 ;;
+  (*) exit 1 ;;
+}

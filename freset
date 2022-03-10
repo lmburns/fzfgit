@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: unstage selected staged file || reset the commit to certain point
 #
 # @params
@@ -17,54 +20,55 @@
 #   -H|--hard: use --hard flag
 #   -y|--yes: confirm action by default and skip confirmation
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: freset [-h] [-c] [-S] [-H] [-y] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%f%b: %F{2}freset%f [%F{13}-h%f] [%F{13}-c%f] [%F{13}-S%f] [%F{13}-H%f] [%F{13}-y%f] ...
 
 Reset(unstage) the selected staged files.
 Reset the HEAD to certain commits by using -c flag.
 
-Default: unstage the selected files.
+%F{4}Default%f: unstage the selected files.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -c, --commit\t\treset HEAD to certain commit, default --mixed flag, reset HEAD to certain commit put all changes into modified state.
-  -S, --soft\t\treset commit using --soft flag, reset HEAD to certain commit without modify working tree.
-  -H, --hard\t\treset commit using --hard flag, reset HEAD to certain commit discard all changes from the working tree.
-  -y, --yes\t\tacknowledge all actions that will be taken and skip confirmation."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f   Show this help message and exit
+  %F{13}-c%f, %F{13}--commit%f Reset HEAD to certain commit
+               %F{4}Default%f: --mixed flag, reset HEAD to certain commit put all changes into modified state
+  %F{13}-S%f, %F{13}--soft%f   Reset commit using --soft flag, reset HEAD to certain commit without modify working tree
+  %F{13}-H%f, %F{13}--hard%f   Reset commit using --hard flag, reset HEAD to certain commit discard all changes from the working tree
+  %F{13}-y%f, %F{13}--yes%f    Acknowledge all actions that will be taken and skip confirmation"
 }
 
+local reset_option reset_type
+local -a selected_files
 reset_option="--mixed"
 reset_type="modified"
-typeset -a selected_files && selected_files=()
-confirm=""
-selected_commit=""
 
-while [[ "$#" -gt 0 ]]; do
+while (( $# )) {
   case "$1" in
-    -c|--commit) reset_type="commit"; shift ;;
-    -S|--soft) reset_option="--soft"; shift ;;
-    -H|--hard) reset_option="--hard"; shift ;;
-    -y|--yes) confirm='y'; shift ;;
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
+    (-c|--commit) reset_type="commit";   shift   ;;
+    (-S|--soft)   reset_option="--soft"; shift   ;;
+    (-H|--hard)   reset_option="--hard"; shift   ;;
+    (-y|--yes)    confirm='y';           shift   ;;
+    (-h|--help)   usage;                 exit 0  ;;
+    (*)           print::error "Invalid option: $1" && { usage; exit 1 } ;;
   esac
-done
+}
 
-if [[ "${reset_type}" == "commit" ]]; then
-  selected_commit=$(get_commit "select the target commit")
-  [[ -z "${selected_commit}" ]] && exit 1
-  [[ -z "${confirm}" ]] && confirm=$(get_confirmation "Reset HEAD to ${selected_commit} ${reset_option}?")
-  [[ "${confirm}" != 'y' ]] && exit 1
-  git reset "${selected_commit}" "${reset_option}"
+if [[ "$reset_type" = "commit" ]]; then
+  selected_commit=$(get_commit "Select the target commit")
+  [[ -z "$selected_commit" ]] && exit 1
+  [[ -z "$confirm" ]] && confirm=$(get_confirmation "Reset HEAD to $selected_commit $reset_option?")
+  [[ "$confirm" != y ]] && exit 1
+  command git reset "$selected_commit" "$reset_option"
 else
-  while IFS= read -r line; do
-    selected_files+=("${line}")
-  done < <(get_modified_file 'select files to unstage' 'staged')
-  [[ "${#selected_files[@]}" -eq 0 ]] && exit 1
-  git reset "${selected_files[@]}"
+  selected_files=( ${(@f)"$(get_modified_file 'select files to unstage' 'staged')"} )
+  (( $#selected_files )) || exit 1
+  command git reset "${selected_files[@]}"
+
 fi

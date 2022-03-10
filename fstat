@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: interactive git status menu; toggle stage and unstage
 #
 # @params
@@ -9,20 +12,21 @@
 #   ${selected_filenames}: bash array of names for the selected_files
 #   ${stage_file}: determine if current operation should be staging file or unstage
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: fstat [-h] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%f%b: %F{2}fstat%f [%F{13}-h%f] ...
 
 Display interactive git status menu.
 Toggle file stage/unstage interactively.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit."
+%F{1}%BOptions%f%f:
+  %F{13}-h%f, %F{13}--help%f  Show this help message and exit"
 }
 
 while [[ "$#" -gt 0 ]]; do

@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: stage the selected file to git bare repo
 #
 # @params
@@ -12,23 +15,26 @@
 #   -f|--file: select a file in PWD to stage
 #   -d|--dir: select a directory in PWD to stage
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: fadd [-h] [-f] [-d] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%f%b:
+  %F{2}fadd%f [%F{13}-h%f] [%F{13}-f%f] [%F{13}-d%f] ...
 
 Select files/directories or modified files through fzf.
 Stage the selected file to the dotfile gitbare repo.
 
-Default: list all modified files and stage the selected files.
+%F{4}Default%f: list all modified files and stage the selected files.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -f, --file\t\tselect files in current directory and stage the selected files.
-  -d, --dir\t\tselect folders in current directory and stage the selected folders."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f    Show this help message and exit
+  %F{13}-f%f, %F{13}--file%f    Select files in current directory and stage the selected files
+  %F{13}-d%f, %F{13}--dir%f     Select folders in current directory and stage the selected folders"
 }
 
 #######################################
@@ -37,36 +43,32 @@ Optional arguments:
 #   $1: array of files to stage
 #######################################
 
-stage_file() {
+function stage_file() {
   local -a files && files=("$@")
-  [[ "${#files[@]}" -eq 0 ]] && { printf "%s" "$(tput setaf 1)Nothing added$(tput sgr0)"; exit 1; }
-  git add "${files[@]}"
+  (( $#files == 0 )) && { print -Pr -- "%F{1}Nothing added%f"; exit 1; }
+  command git add "${files[@]}"
 }
 
-stage_type="modified"
-typeset -a selected_files && selected_files=()
+local stage_type="modified"
+local -a selected_files
 
-while [[ "$#" -gt 0 ]]; do
+while (( $# )) {
   case "$1" in
-    -f|--file) stage_type="file"; shift ;;
-    -d|--dir) stage_type="dir";   shift ;;
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
+    (-f|--file) stage_type="file"; shift ;;
+    (-d|--dir)  stage_type="dir";  shift ;;
+    (-h|--help) usage && exit 0 ;;
+    (*)         print::error "Invalid option: $1" && { usage; exit 1 } ;;
   esac
-done
+}
 
-while IFS= read -r line; do
-  selected_files+=("${line}")
-done < <(
-  if [[ "${stage_type}" == "file" ]]; then
-    search_file 'f'
-  elif [[ "${stage_type}" == "dir" ]]; then
-    search_file 'd'
-  else
-    get_modified_file "select files to stage" "unstaged"
-  fi
-)
+if [[ $stage_type = file ]] {
+  selected_files=( ${(@f)"$(search_file f)"} )
+} elif [[ $stage_type = dir ]] {
+  selected_files=( ${(@f)"$(search_file d)"} )
+} else {
+  selected_files=( ${(@f)"$(get_modified_file 'Select files to stage' 'unstaged')"} )
+}
 
-stage_file "${selected_files[@]}"
+stage_file "$selected_files[@]"
 
-[[ "${#selected_files[@]}" -ne 0 ]] && git status -sb
+(( $#selected_files )) && command git status -sb

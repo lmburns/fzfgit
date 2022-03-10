@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: checkout files/commit/branches using fzf
 #
 # @params
@@ -16,77 +19,79 @@
 #   -b|--branch: search branch and checkout branch
 #   -c|--commit: search commit and checkout commit
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: fcheckout [-h] [-s] [-b] [-c] [-y] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%f%b:
+  %F{2}fcheckout%f [%F{13}-h%f] [%F{13}-s%f] [%F{13}-b%f] [%F{13}-c%f] [%F{13}-y%f] ...
 
-Select files/commit/branch through fzf and checkout the selected objects.
-Files: checkout the version in HEAD or in a specific commit (reset files content back to the selected commit).
-Branch: switch to the selected branch.
-Commit: switch to a specific commit.
+%F{11}Select%f files/commit/branch through fzf and checkout the selected objects.
+%F{11}Files%f: checkout version in %F{2}HEAD%f or in a specific commit (reset file content to commit).
+%F{11}Branch%f: switch to the selected branch.
+%F{11}Commit%f: switch to a specific commit.
 
-Default: list all modified files and reset selected files back to HEAD.
+%F{4}Default%f: list all modified files and reset selected files back to HEAD.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -s, --select\t\tlist all tracked files and select a commit to checkout the selected files.
-  -b, --branch\t\tlist all branch and checkout/switch the selected branch.
-  -c, --commit\t\tlist all commits and checkout selected commit.
-  -y, --yes\t\tacknowledge all actions that will be taken and skip confirmation."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f    Show this help message and exit
+  %F{13}-s%f, %F{13}--select%f  List all tracked files and select a commit to checkout the selected files
+  %F{13}-b%f, %F{13}--branch%f  List all branch and checkout/switch the selected branch
+  %F{13}-c%f, %F{13}--commit%f  List all commits and checkout selected commit
+  %F{13}-y%f, %F{13}--yes%f     Acknowledge all actions that will be taken and skip confirmation"
 }
 
+local -a selected_files
+local action_type confirm selected_commit selected_branch
 action_type="modified"
-typeset -a selected_files && selected_files=()
-confirm=""
-selected_commit=""
-selected_branch=""
 
-while [[ "$#" -gt 0 ]]; do
+while (( $# )) {
   case "$1" in
-    -s|--select) action_type="select"; shift ;;
-    -b|--branch) action_type="branch"; shift ;;
-    -c|--commit) action_type="commit"; shift ;;
-    -y|--yes) confirm="y";             shift ;;
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1;;
+    (-s|--select) action_type="select"; shift ;;
+    (-b|--branch) action_type="branch"; shift ;;
+    (-c|--commit) action_type="commit"; shift ;;
+    (-y|--yes)    confirm="y";             shift ;;
+    (-h|--help)   usage && exit 0 ;;
+    (*)           print::error "Invalid option: $1" && { usage; exit 1 } ;;
   esac
-done
+}
 
-if [[ "${action_type}" == "branch" ]]; then
-  # checkout branch
-  selected_branch=$(get_branch 'select a branch to checkout')
-  [[ -z "${selected_branch}" ]] && exit 1
-  git checkout "${selected_branch}"
-elif [[ "${action_type}" == "commit" ]]; then
-  # checkout commit
-  selected_commit=$(get_commit 'select a commit to checkout')
+if [[ "$action_type" = branch ]]; then
+  # Checkout branch
+  selected_branch=$(get_branch 'Select a branch to checkout')
+  [[ -z "$selected_branch" ]] && exit 1
+  command git checkout "${selected_branch}"
+
+elif [[ "$action_type" = "commit" ]]; then
+  # Checkout commit
+  selected_commit=$(get_commit 'Select a commit to checkout')
   [[ -z "${selected_commit}" ]] && exit 1
-  git checkout "${selected_commit}"
-elif [[ "${action_type}" == "modified" ]]; then
-  # checkout modified file back to version in HEAD
-  while IFS= read -r line; do
-    selected_files+=("${line}")
-  done < <(get_modified_file 'select files to checkout version in HEAD')
-  [[ "${#selected_files[@]}" -eq 0 ]] && exit 1
-  [[ -z "${confirm}" ]] && echo "(dryrun) git checkout --" "${selected_files[@]}"
-  [[ -z "${confirm}" ]] && confirm=$(get_confirmation "Confirm?")
-  [[ "${confirm}" != 'y' ]] && exit 1
-  git checkout -- "${selected_files[@]}"
-elif [[ "${action_type}" == "select" ]]; then
-  # checkout selected files to a selected commit
-  while IFS= read -r line; do
-    selected_files+=("${line}")
-  done < <(get_git_file 'select files to checkout to previous commit')
-  [[ "${#selected_files[@]}" -eq 0 ]] && exit 1
-  # continue select a commit and then checkout the file back to the selected commit
+  command git checkout "${selected_commit}"
+
+elif [[ "$action_type" = modified ]]; then
+  # Checkout modified file back to version in HEAD
+  selected_files=( ${(@f)"$(get_modified_file 'select files to checkout version in HEAD')"} )
+  (( $#selected_files )) || exit 1
+  [[ -z "$confirm" ]] && \
+    builtin print -P "(%F{3}dryrun%f) %F{2}git%f checkout --" "${selected_files[@]}"
+  [[ -z "$confirm" ]] && confirm=$(get_confirmation "Confirm?")
+  [[ "$confirm" != y ]] && exit 1
+  command git checkout -- "$selected_files[@]"
+
+elif [[ "$action_type" = select ]]; then
+  # Checkout selected files to a selected commit
+  selected_files=( ${(@f)"$(get_git_file 'select files to checkout to previous commit')"} )
+  (( $#selected_files )) || exit 1
+  # Continue select a commit and then checkout the file back to the selected commit
   selected_commit=$(get_commit 'select the target commit' "${selected_files[@]}")
-  [[ -z "${selected_commit}" ]] && exit 1
-  [[ -z "${confirm}" ]] && echo "(dryrun) git checkout ${selected_commit} --" "${selected_files[@]}"
-  [[ -z "${confirm}" ]] && confirm=$(get_confirmation "Confirm?")
-  [[ "${confirm}" != 'y' ]] && exit 0
-  git checkout "${selected_commit}" "${selected_files[@]}"
+  [[ -z "$selected_commit" ]] && exit 1
+  [[ -z "$confirm" ]] && \
+    builtin print -P "(%F{3}dryrun%f) %F{2}git%f checkout ${selected_commit} --" "${selected_files[@]}"
+  [[ -z "$confirm" ]] && confirm=$(get_confirmation "Confirm?")
+  [[ "$confirm" != y ]] && exit 0
+  command git checkout "$selected_commit" "$selected_files[@]"
 fi

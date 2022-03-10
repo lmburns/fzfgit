@@ -1,5 +1,8 @@
-#!/usr/bin/env bash
-#
+#!/usr/bin/env zsh
+
+0="${${ZERO:-${0:#$ZSH_ARGZERO}}:-${(%):-%N}}"
+0="${${(M)0:#/*}:-$PWD/$0}"
+
 # Desc: stash operation using fzf
 #
 # @params
@@ -15,64 +18,67 @@
 #   -d|--delete: delete selected stash
 #   -p|--pop: use pop instead of apply on the selected stash
 
-set -ef
+emulate -LR zsh
+setopt warncreateglobal noshortloops
 
-mydir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-source "${mydir}"/fgit_helper.sh
+local mydir; mydir=${0:h:A}
+builtin source ${mydir}/fgit_helper
 
-usage() {
-  echo -e "Usage: fstash [-h] [-s] [-d] [-p] ...
+function usage() {
+  builtin print -P -- "\
+%F{1}%BUsage%f%b: %F{2}fstash%f [%F{13}-h%f] [%F{13}-s%f] [%F{13}-d%f] [%F{13}-p%f] ...
 
 View and manage stash interactively.
 
-Default: list all stashes and apply the selected stash.
+%F{4}Default%f: list all stashes and apply the selected stash.
 
-Optional arguments:
-  -h, --help\t\tshow this help message and exit.
-  -s, --select\t\tlist modified files and stash the selected files.
-  -d, --delete\t\tlist all stashes and delete the selected stash from stash list.
-  -p, --pop\t\tuse 'stash pop' instead of 'stash apply'."
+%F{1}%BOptions%f%b:
+  %F{13}-h%f, %F{13}--help%f    Show this help message and exit
+  %F{13}-s%f, %F{13}--select%f  List modified files and stash the selected files
+  %F{13}-d%f, %F{13}--delete%f  List all stashes and delete the selected stash from stash list
+  %F{13}-p%f, %F{13}--pop%f     Use 'stash pop' instead of 'stash apply'"
 }
 
+local stash_command confirm
+local -a selected_files selected_stash
 stash_command="apply"
-typeset -a selected_files && selected_files=()
-selected_stash=""
-confirm=""
 
-while [[ "$#" -gt 0 ]]; do
+while (( $# )) {
   case "$1" in
-    -p|--pop) stash_command="pop";       shift ;;
-    -s|--select) stash_command="select"; shift ;;
-    -d|--delete) stash_command="delete"; shift ;;
-    -y|--yes) confirm="y"; shift ;;
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
+    (-p|--pop)    stash_command="pop";    shift ;;
+    (-s|--select) stash_command="select"; shift ;;
+    (-d|--delete) stash_command="delete"; shift ;;
+    (-y|--yes)    confirm="y";            shift ;;
+    (-h|--help)   usage; exit 0  ;;
+    (*)           print::error "Invalid option: $1" && { usage; exit 1 } ;;
   esac
-done
+}
 
-if [[ "${stash_command}" == "select" ]]; then
-  while IFS= read -r line; do
-    selected_files+=("${line}")
-  done < <(get_modified_file "select files to add to a stash")
-  [[ "${#selected_files[@]}" -eq 0 ]] && exit 1
-  git stash -- "${selected_files[@]}"
-elif [[ "${stash_command}" == "delete" ]]; then
-  selected_stash=$(get_stash "select stash to delete")
-  [[ -z "${selected_stash}" ]] && exit 1
-  [[ -z "${confirm}" ]] && \
-    while IFS= read -r line; do
-      echo "(dryrun) drop ${line}"
-    done <<< "${selected_stash}"
-  [[ -z "${confirm}" ]] && confirm=$(get_confirmation)
-  [[ "${confirm}" != 'y' ]] && exit 1
-  while IFS= read -r line; do
-    git stash drop "${line}"
-  done <<< "${selected_stash}"
+local line
+
+if [[ "$stash_command" == "select" ]]; then
+  selected_files=( ${(@f)"$(get_modified_file "select files to add to a stash")"} )
+  (( $#selected_files )) || exit 1
+  command git stash -- "$selected_files[@]"
+elif [[ "$stash_command" == "delete" ]]; then
+  selected_stash=( ${(@f)"$(get_stash 'select stash to delete')"} )
+  (( $#selected_stash )) || exit 1
+  [[ -z "$confirm" ]] && \
+    foreach line ("$selected_stash[@]") {
+      print -P -- "(%F{3}dryrun%f) drop ${line}"
+    }
+
+  [[ -z "$confirm" ]] && confirm=$(get_confirmation)
+  [[ "$confirm" != y ]] && exit 1
+
+  foreach line ("$selected_stash[@]") {
+    command git stash drop "${line}"
+  }
 else
-  selected_stash=$(get_stash "select stash to apply" "true")
-  [[ -z "${selected_stash}" ]] && exit 1
-  [[ -z "${confirm}" ]] && echo "(dryrun) ${stash_command} ${selected_stash}"
-  [[ -z "${confirm}" ]] && confirm=$(get_confirmation)
-  [[ "${confirm}" != 'y' ]] && exit 1
-  git stash "${stash_command}" "${selected_stash}"
+  selected_stash=( ${(@f)"$(get_stash 'select stash to apply' 'true')"} )
+  (( $#selected_stash )) || exit 1
+  [[ -z "$confirm" ]] && print -P -- "(%F{3}dryrun%f) $stash_command $selected_stash"
+  [[ -z "$confirm" ]] && confirm=$(get_confirmation)
+  [[ "$confirm" != y ]] && exit 1
+  command git stash "$stash_command" "$selected_stash"
 fi

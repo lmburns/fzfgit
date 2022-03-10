@@ -32,8 +32,8 @@ install:
 	@echo "funtrack installed successfully"
 	@install -vm755 fzgrep "$(DESTDIR)/fzgrep"
 	@echo "fzgrep installed successfully"
-	@install -vm755 fgit_helper.sh "$(DESTDIR)/fgit_helper.sh"
-	@echo "fgit_helper.sh installed successfully"
+	@install -vm755 fgit_helper "$(DESTDIR)/fgit_helper"
+	@echo "fgit_helper installed successfully"
 	@install -vm755 preview.sh "$(DESTDIR)/preview.sh"
 	@echo "preview.sh installed successfully"
 	@echo
@@ -52,5 +52,5 @@ uninstall:
 		"$(DESTDIR)/fstat" \
 		"$(DESTDIR)/funtrack" \
 		"$(DESTDIR)/fzgrep" \
-		"$(DESTDIR)/fgit_helper.sh" \
+		"$(DESTDIR)/fgit_helper" \
 		"$(DESTDIR)/preview.sh"
