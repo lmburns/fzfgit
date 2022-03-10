@@ -29,37 +29,35 @@ Toggle file stage/unstage interactively.
   %F{13}-h%f, %F{13}--help%f  Show this help message and exit"
 }
 
-while [[ "$#" -gt 0 ]]; do
+(( $# )) && {
   case "$1" in
-    -h|--help) usage && exit 0 ;;
-    *) echo "Invalid option: $1" >&2 && usage && exit 1 ;;
+    (-h|--help)  usage && exit 0 ;;
+    (*)          print::error "Invalid option: $1" &&   { usage; exit 1 } ;;
   esac
-done
+}
 
-typeset -a mod_files && mod_files=()
+local -a mod_files
 
 while :; do
   # reset all variable and arrays for each loop
-  typeset -a selected_files && selected_files=()
-  typeset -a selected_filenames && selected_filenames=()
-  stage_file=""
-
-  while IFS= read -r line; do
-    selected_files+=("${line}")
-  done < <(get_modified_file "select files to stage/unstage" "all" "raw")
-  [[ "${#selected_files[@]}" -eq 0 ]] && break;
+  local -a selected_files selected_filenames
+  local stage_file
+  selected_files=( ${(@f)"$(get_modified_file 'select files to stage/unstage' 'all' 'raw')"} )
+  (( $#selected_files )) || break
 
   # check if current operation should stage file or unstage file
   # if any file start with M but has char immediately follow it, new changes are made, stage file
   # if any file start with a space or tab, the file is not staged, stage file
   # otherwise, we unstage
-  stage_file=$(printf '%s\n' "${selected_files[@]}" | awk '{
-    if ($0 ~ /^[[:alpha:]]{2}.*$/) {
-      print "stage"
-    } else if ($0 ~ /^[ \t].*$/) {
-      print "stage"
-    }
-  }')
+  stage_file=$(print -lr -- "$selected_files[@]" \
+    | command awk '{
+      if ($0 ~ /^[[:alpha:]]{2}.*$/) {
+        print "stage"
+      } else if ($0 ~ /^[ \t].*$/) {
+        print "stage"
+      }
+    }'
+  )
 
   while IFS= read -r line; do
     selected_filenames+=("${line}")
@@ -77,11 +75,12 @@ while :; do
         }'
   )
 
-  if [[ -z "${stage_file}" ]]; then
-    git reset --quiet HEAD "${selected_filenames[@]}"
+  if [[ -z "$stage_file" ]]; then
+    command git reset --quiet HEAD "$selected_filenames[@]"
   else
-    git add "${selected_filenames[@]}"
+    command git add "$selected_filenames[@]"
   fi
 done
 
-[[ "${#mod_files[@]}" -ne 0 ]] && git status -sb || printf "%s" "$(tput setaf 1)Nothing to add$(tput sgr0)"
+(( $#mod_files[@] )) && \
+  command git status -sb || print -Pr -- "%F{1}Nothing to add%f"
